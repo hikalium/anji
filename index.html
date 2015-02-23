@@ -1,96 +1,124 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
-  <meta charset="utf-8">
-  <title>漢字の線に囲まれた部分だけを塗りつぶした画像で何の四字熟語か当てる画像を作る</title>
-  <script src="http://jsrun.it/assets/k/P/F/1/kPF1v"></script>
-  <style>
-    canvas {
-      border: 1px #ccc solid;
-    }
-  </style>
-  </head>
-  <body>
-    <div class="container">
-      <canvas id="origin" width="300" height="100"></canvas>
-      <canvas id="change" width="300" height="100"></canvas>
-      <div class="form-group" style="max-width:610px;">
-        <input id="yojijukugo" type="text" size="4" maxlength="4" placeholder="四字熟語" value="臥薪嘗胆" class="form-control input-lg">
-      </div>
-      <div class="form-inline form-group">
-        <button id="generate" class="btn btn-primary">Generate</button>
-        <label><input id="box" type="checkbox" checked="checked">box</label>
-      </div>
-      <hr>
-      <footer>
-        <ul>
-          <li><a href="http://blog.livedoor.jp/kinisoku/archives/4204798.html">漢字の線に囲まれた部分だけを塗りつぶした画像で何の四字熟語か当てるスレ：キニ速</a></li>
-          <li><a href="http://jsdo.it/imaya/seedfill">塗りつぶしアルゴリズム(scanline seed fill algorithm) - jsdo.it - Share JavaScript, HTML5 and CSS</a></li>
-        </ul>
-      </footer>
-    </div>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">  <meta charset="utf-8">
+<title>漢字の線に囲まれた部分だけを塗りつぶした画像で何の四字熟語か当てる画像を作る</title>
+<script src="http://jsrun.it/assets/k/P/F/1/kPF1v"></script>
+<style>
+	canvas {
+		border: 1px #ccc solid;
+	}
+</style>
+<script>
+var origin;
+var change;
+var fontSize = 120;
+var boxSize = 160;
+var marginSize = 10;
 
-    <script>
-    var origin = document.getElementById("origin");
-    var change = document.getElementById("change");
+generateAnji = function(){
+	//var outputCanvas = document.getElementById("outputCanvas");
+	var origin = document.getElementById("kanjiCanvas");
+	var change = document.getElementById("anjiCanvas");
+	//
+	origin.width = (boxSize << 2) + (marginSize << 1);
+	origin.height = boxSize + (marginSize << 1);
+	change.width = origin.width;
+	change.height = origin.height;
+	//
+	generateStr(origin);
+	copyCanvas(origin, change);
+	generateMain(change);
+	//
+	if (document.getElementById("box").checked) {
+		drawBox(origin);
+		drawBox(change);
+	}
+}
 
-    document.getElementById('generate').addEventListener('click', function (ev) {
-      generate(origin);
-      copy(origin, change);
-      translate(change);
+function generateStr(canvas) {
+	// 白地に黒で文字列を配置する。
+	var ctx = canvas.getContext("2d");
+	//
+	ctx.fillStyle = "#fff";
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	//
+	ctx.fillStyle = "#000";
+	ctx.font = fontSize + "pt MSゴシック";
+	ctx.textAlign = "center";
+	var words = document.getElementById("yojijukugo").value.split("");
+	for (var i = 0; i < 4; i++) {
+		ctx.fillText(words[i] || "", marginSize + i * boxSize + (boxSize >> 1) + 0.5, boxSize * 0.9 + marginSize);
+	}
+}
 
-      if (document.getElementById("box").checked) {
-        box(origin);
-        box(change);
-      }
-    });
+function copyCanvas(from, to) {
+	to.getContext("2d").drawImage(from, 0, 0);
+}
 
-    function generate (canvas) {
-      var ctx = canvas.getContext("2d");
+function generateMain(canvas) {
+	var ctx = canvas.getContext("2d");
+	var cfa = new CanvasFillAlgorithm(canvas);
+	cfa.setColorDistance(0.85);
+	cfa.setAlphaDistance(0);
+	cfa.paint(0, 0, 255);
 
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+	var cid = ctx.getImageData(0, 0, canvas.width, canvas.height);
+	var pixels = cid.data;
+	var c;
+	for (var i = 0, l = canvas.width * canvas.height; i < l; i++) {
+		c = pixels[i * 4 + 0];
+		if(c < 128){
+			pixels[i * 4 + 0] = 0xff;
+			pixels[i * 4 + 1] = 0xff;
+			pixels[i * 4 + 2] = 0xff;
+			pixels[i * 4 + 3] = 0x00;
+		} else{
+			pixels[i * 4 + 0] = 0x00;
+			pixels[i * 4 + 1] = 0x00;
+			pixels[i * 4 + 2] = 0x00;
+			pixels[i * 4 + 3] = 0xff;
+		}
+	}
+	ctx.putImageData(cid, 0, 0);
+}
 
-      ctx.fillStyle = "#000";
-      ctx.font = "50pt MSゴシック";
-      var words = document.getElementById("yojijukugo").value.split("");
-      for (var i = 0; i < 4; i++) {
-        ctx.fillText(words[i] || "", 10+70*i, 75);
-      }
-    }
+function drawBox (canvas) {
+	var ctx = canvas.getContext("2d");
+	ctx.translate(0.5, 0.5);
+	for(var i = 0; i < 4; i++){
+		ctx.strokeRect(marginSize + boxSize * i, marginSize, boxSize, boxSize);
+	}
+	ctx.translate(-0.5, -0.5);
+}
 
-    function copy(from, to) {
-      to.getContext("2d").drawImage(from, 0, 0);
-    }
+onload = function(){
+	document.getElementById("generate").addEventListener("click", generateAnji);
+}
 
-    function translate (canvas) {
-      var ctx = canvas.getContext("2d");
-
-      var cfa = new CanvasFillAlgorithm(canvas);
-      cfa.setColorDistance(0.9);
-      cfa.setAlphaDistance(0);
-      cfa.paint(0, 0, 255);
-
-      var cid = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      var pixels = cid.data;
-      for (var i = 0, l = canvas.width * canvas.height; i < l; i++) {
-        pixels[i*4]   = 255 - pixels[i*4];
-        pixels[i*4+1] = 255 - pixels[i*4+1];
-        pixels[i*4+2] = 255 - pixels[i*4+2];
-      }
-      ctx.putImageData(cid, 0, 0);
-    }
-
-    function box (canvas) {
-      var ctx = canvas.getContext("2d");
-
-      ctx.strokeRect(7.5, 14.5, 70, 70);
-      ctx.strokeRect(77.5, 14.5, 70, 70);
-      ctx.strokeRect(147.5, 14.5, 70, 70);
-      ctx.strokeRect(217.5, 14.5, 70, 70);
-      ctx.stroke();
-    }
-    </script>
-  </body>
+</script>
+</head>
+<body>
+<div class="container">
+	<h2>漢字の線に囲まれた部分だけを塗りつぶした画像で<br />何の四字熟語か当てる画像を作る<small>改善版 by hikalium</small></h2>
+	<canvas id="kanjiCanvas"></canvas>
+	<canvas id="anjiCanvas"></canvas>
+	<div class="form-group" style="max-width:610px;">
+		<input id="yojijukugo" type="text" size="4" maxlength="4" placeholder="四字熟語" value="温故知新" class="form-control input-lg">
+	</div>
+	<div class="form-inline form-group">
+		<button id="generate" class="btn btn-primary">Generate</button>
+		<label><input id="box" type="checkbox" checked="checked"> borderBox</label>
+	</div>
+	<hr>
+	<footer>
+		<ul>
+			<li><a href="http://blog.livedoor.jp/kinisoku/archives/4204798.html">漢字の線に囲まれた部分だけを塗りつぶした画像で何の四字熟語か当てるスレ：キニ速</a></li>
+			<li><a href="http://jsdo.it/imaya/seedfill">塗りつぶしアルゴリズム(scanline seed fill algorithm) - jsdo.it - Share JavaScript, HTML5 and CSS</a></li>
+			<li><a href="https://gist.github.com/k-hamada/02383e0406b2447600f8">Fork元 (created by k-hamada)</a></li>
+			<li><a href="https://gist.github.com/hikalium">hikalium on GitHub</a></li>
+		</ul>
+	</footer>
+</div>
+</body>
 </html>
